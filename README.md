@@ -87,15 +87,12 @@ This project provides a web-based interface for viewing, querying, editing, and 
 python -m venv venv
 ```
 - Activate the Virtual Environment:
-    - On Windows:
-```
-    .\venv\Scripts\activate
-```
-
-    - On macOS/Linux:
-
     ```
-        source venv/bin/activate
+    # On Windows:
+    .\venv\Scripts\activate
+
+    # On macOS/Linux:
+    source venv/bin/activate
     ```
 3. Install Dependencies:
 ```
