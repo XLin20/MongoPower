@@ -1,9 +1,9 @@
-#  PowerGrid Data Hub
+#  MongoPower Data Manager
 ### Project Description
 
 This project provides a web-based interface for viewing, querying, editing, and saving MongoDB documents, with a built-in change log history. It's designed to manage power system data, allowing users to interact with database collections, inspect document contents (including nested arrays in a tabular format), and track modifications.
 
-## Features
+## Website Features
 - MongoDB Connection Status: Real-time display of the connection status to the MongoDB instance.
 
 - Database & Collection Browsing: Easily list and select available databases and collections.
@@ -92,7 +92,9 @@ python -m venv venv
 ```
     .\venv\Scripts\activate
 ```
+
     - On macOS/Linux:
+
 ```
     source venv/bin/activate
 ```
@@ -130,19 +132,19 @@ Simply open the ```index.html``` file in your web browser (e.g., by double-click
 
 4. Edit Content:
 
-- If the document contains a flat array (like ```network.buses``` or ```network.caseid.data```), it will display in an editable table.
+    - If the document contains a flat array (like ```network.buses``` or ```network.caseid.data```), it will display in an editable table.
 
-- Use the "Switch to Raw JSON" button to edit the entire document as raw JSON.
+    - Use the "Switch to Raw JSON" button to edit the entire document as raw JSON.
 
 5. Save Changes:
 
-- "Update Existing Document": Saves your changes back to the currently loaded document.
+    - ```Update Existing Document```: Saves your changes back to the currently loaded document.
 
-- "Save as New Document": Saves the current content as a brand new document. You can optionally provide a suffix for the new ```_id```.
+    - ```Save as New Document```: Saves the current content as a brand new document. You can optionally provide a suffix for the new ```_id```.
 
 6. View Change History: The right panel will automatically update to show a log of document saves and edits. Click "View Details" to see the old and new content of a change.
 
-7. Download Logs: Click "Download Logs" to save the current log history as a JSON file.
+7. Download Logs: Click ```Download Logs``` to save the current log history as a JSON file.
 
 ## Contributing
 Contributions are welcome! If you find a bug or have a feature request, please open an issue. If you'd like to contribute code, please fork the repository and submit a pull request.
