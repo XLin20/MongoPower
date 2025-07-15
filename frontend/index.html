@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MongoDB Data Viewer</title>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #root {
+            display: flex;
+            flex-grow: 1;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+        .left-panel {
+            flex: 0 0 280px;
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .right-panel {
+            flex: 0 0 350px;
+            background-color: #fff;
+            border-left: 1px solid #ddd;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        h1, h2, h3 { color: #333; }
+        .left-panel h2, .left-panel h3 { color: #fff; border-bottom: 1px solid #555; padding-bottom: 8px; margin-top: 16px; }
+        .list-item {
+            margin-bottom: 5px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            word-break: break-all;
+        }
+        .list-item:hover { background-color: #555; }
+        .list-item.active { background-color: #007bff; color: white; }
+        button {
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        textarea, .table-container {
+            width: 100%;
+            height: 100%;
+            flex-grow: 1;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: monospace;
+            white-space: pre;
+            overflow: auto;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .table-wrapper {
+            margin-top: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+        .table-container {
+            max-height: 65vh;
+            overflow: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            white-space: nowrap;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        td input { width: 100%; box-sizing: border-box; border: 1px solid #ccc; padding: 6px; border-radius: 3px;}
+        .log-history-list { flex-grow: 1; overflow-y: auto; }
+        .log-entry { background-color: #f8f8f8; border: 1px solid #eee; border-radius: 5px; padding: 10px; margin-bottom: 10px; font-size: 0.9em; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 900px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative; max-height: 90vh; display: flex; flex-direction: column; }
+        .modal-body { overflow-y: auto; }
+        .close-button { color: #aaa; align-self: flex-end; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .log-detail-section { margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        .log-detail-section pre { background-color: #e9e9e9; padding: 10px; border-radius: 4px; max-height: 300px; overflow: auto; font-family: monospace; }
+        .searchable-list-container { position: relative; }
+        .search-input { width: 100%; padding: 8px; box-sizing: border-box; margin-bottom: 5px; background-color: #555; color: white; border: 1px solid #777; border-radius: 4px;}
+        .item-list-dropdown {
+            position: absolute;
+            background-color: #444;
+            border: 1px solid #777;
+            border-radius: 4px;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        .item-list { list-style: none; padding: 0; }
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .diff-old { background-color: #fecaca; font-weight: bold; }
+        .diff-new { background-color: #bbf7d0; font-weight: bold; }
+        .diff-row-old { background-color: #fee2e2; }
+        .diff-row-new { background-color: #f0fdf4; }
+        .diff-summary { background-color: #eef2ff; padding: 10px; border-radius: 5px; margin-bottom: 1rem; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const API_BASE_URL = "http://127.0.0.1:5000/api";
+
+        const LogDetailModal = ({ log, onClose }) => {
+            if (!log) return null;
+
+            const getObjectDiffs = (oldData, newData) => {
+                const diffs = new Set();
+                function findDiffs(oldVal, newVal, path) {
+                    const oldIsObject = typeof oldVal === 'object' && oldVal !== null;
+                    const newIsObject = typeof newVal === 'object' && newVal !== null;
+
+                    if (!oldIsObject || !newIsObject || Array.isArray(oldVal) !== Array.isArray(newVal)) {
+                        if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+                            diffs.add(path);
+                        }
+                        return;
+                    }
+
+                    if (Array.isArray(oldVal)) {
+                        const maxLength = Math.max(oldVal.length, newVal.length);
+                        for (let i = 0; i < maxLength; i++) {
+                            findDiffs(oldVal[i], newVal[i], `${path}[${i}]`);
+                        }
+                        return;
+                    }
+                    
+                    const allKeys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+                    for (const key of allKeys) {
+                        findDiffs(oldVal[key], newVal[key], path ? `${path}.${key}` : key);
+                    }
+                }
+                findDiffs(oldData, newData, '');
+                return diffs;
+            };
+            
+            const DiffViewer = ({ data, diffs, type, pathPrefix = '' }) => {
+                if (typeof data !== 'object' || data === null) {
+                    const isDiff = diffs.has(pathPrefix);
+                    const className = isDiff ? (type === 'old' ? 'diff-old' : 'diff-new') : '';
+                    return <span className={className}>{JSON.stringify(data)}</span>;
+                }
+
+                if (Array.isArray(data)) {
+                    return <>
+                        [<br />
+                        {data.map((item, index) => {
+                            const itemPath = `${pathPrefix}[${index}]`;
+                            const hasNestedDiff = Array.from(diffs).some(d => d.startsWith(itemPath));
+                            const rowClassName = hasNestedDiff ? (type === 'old' ? 'diff-row-old' : 'diff-row-new') : '';
+                            return (
+                                <div key={index} className={rowClassName} style={{ paddingLeft: '2em', borderRadius: '4px' }}>
+                                    <DiffViewer data={item} diffs={diffs} type={type} pathPrefix={itemPath} />,
+                                    <br />
+                                </div>
+                            );
+                        })}
+                        ]
+                    </>;
+                }
+
+                return <>
+                    {'{'}<br />
+                    {Object.entries(data).map(([key, value]) => (
+                        <div key={key} style={{ paddingLeft: '2em' }}>
+                            <strong>"{key}"</strong>: <DiffViewer data={value} diffs={diffs} type={type} pathPrefix={pathPrefix ? `${pathPrefix}.${key}` : key} />,
+                            <br />
+                        </div>
+                    ))}
+                    {'}'}
+                </>;
+            };
+
+            const diffs = getObjectDiffs(log.old_content, log.new_content);
+            const changedNetworkObjects = new Set(Array.from(diffs).map(d => {
+                const parts = d.split('.');
+                if (parts[0] === 'network' && parts.length > 1) {
+                    return parts[1].split('[')[0];
+                }
+                return null;
+            }).filter(Boolean));
+
+            return (
+                <div className="modal" style={{ display: 'flex' }}>
+                    <div className="modal-content">
+                        <span className="close-button" onClick={onClose}>&times;</span>
+                        <div className="modal-body">
+                            <h2>Log Entry Details</h2>
+                            <div className="diff-summary">
+                                <strong>Summary:</strong> 1 document changed.{" "}
+                                {changedNetworkObjects.size} network object(s) affected.{" "}
+                                {diffs.size} total value(s) modified.
+                            </div>
+                            <p><strong>Action:</strong> {log.action}</p>
+                            <p><strong>Timestamp:</strong> {new Date(log.timestamp.$date || log.timestamp).toLocaleString()}</p>
+                            <div className="log-detail-section">
+                                <h4>Old Content</h4>
+                                <pre><DiffViewer data={log.old_content} diffs={diffs} type="old" /></pre>
+                            </div>
+                            <div className="log-detail-section">
+                                <h4>New Content</h4>
+                                <pre><DiffViewer data={log.new_content} diffs={diffs} type="new" /></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        function App() {
+            // ... (rest of the state declarations are the same)
+            const [mongoStatus, setMongoStatus] = React.useState("Disconnected");
+            const [dbName, setDbName] = React.useState('');
+            const [selectedDb, setSelectedDb] = React.useState('');
+            const [collectionNames, setCollectionNames] = React.useState([]);
+            const [selectedCollection, setSelectedCollection] = React.useState('');
+            const [documentIds, setDocumentIds] = React.useState([]);
+            const [selectedDocumentId, setSelectedDocumentId] = React.useState('');
+            const [selectedDocument, setSelectedDocument] = React.useState(null);
+            const [editableContent, setEditableContent] = React.useState('');
+            const [logHistory, setLogHistory] = React.useState([]);
+            const [selectedLog, setSelectedLog] = React.useState(null);
+            const [loading, setLoading] = React.useState(false);
+            const [error, setError] = React.useState('');
+            
+            const [collectionSearch, setCollectionSearch] = React.useState('');
+            const [docIdSearch, setDocIdSearch] = React.useState('');
+            const [networkObjectSearch, setNetworkObjectSearch] = React.useState('');
+            const [isCollectionDropdownVisible, setIsCollectionDropdownVisible] = React.useState(false);
+            const [isDocIdDropdownVisible, setIsDocIdDropdownVisible] = React.useState(false);
+            const [isNetworkObjectDropdownVisible, setIsNetworkObjectDropdownVisible] = React.useState(false);
+
+            const [networkObjects, setNetworkObjects] = React.useState([]);
+            const [selectedNetworkObject, setSelectedNetworkObject] = React.useState(null);
+            const [viewMode, setViewMode] = React.useState('json');
+            const [currentPage, setCurrentPage] = React.useState(1);
+            const [editableTableData, setEditableTableData] = React.useState([]);
+            const [isTableEditing, setIsTableEditing] = React.useState(false);
+            const ROWS_PER_PAGE = 10;
+
+            const callApi = async (endpoint, data, method = 'POST') => {
+                setLoading(true);
+                try {
+                    const config = { method, headers: { 'Content-Type': 'application/json' } };
+                    if (method !== 'GET' && data) config.body = JSON.stringify(data);
+                    const response = await fetch(`${API_BASE_URL}/${endpoint}`, config);
+                    const jsonResponse = await response.json();
+                    if (!response.ok) throw new Error(jsonResponse.detail || 'API call failed');
+                    setError('');
+                    return jsonResponse;
+                } catch (err) {
+                    setError(err.message);
+                    return null;
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            React.useEffect(() => {
+                callApi('connect', null, 'GET').then(res => {
+                    if (res) setMongoStatus(res.message);
+                    else setMongoStatus("Connection Failed");
+                });
+            }, []);
+            
+            const resetState = (level) => {
+                if (level <= 1) { setSelectedCollection(''); setCollectionNames([]); setCollectionSearch(''); setIsTableEditing(false); }
+                if (level <= 2) { setSelectedDocumentId(''); setDocumentIds([]); setDocIdSearch(''); }
+                if (level <= 3) { setSelectedDocument(null); setEditableContent(''); setNetworkObjects([]); setSelectedNetworkObject(null); setViewMode('json'); setEditableTableData([]); setNetworkObjectSearch(''); }
+            };
+
+            const handleDbNameSubmit = () => {
+                setSelectedDb(dbName);
+                resetState(1);
+                callApi('get_collections', { db_name: dbName }).then(res => {
+                    if (res) setCollectionNames(res.collections);
+                });
+                fetchLogs(dbName);
+            };
+
+            const handleCollectionSelect = (collectionName) => {
+                setSelectedCollection(collectionName);
+                setCollectionSearch(collectionName);
+                setIsCollectionDropdownVisible(false);
+                resetState(2);
+                callApi('get_document_ids', { db_name: selectedDb, collection_name: collectionName }).then(res => {
+                    if (res) setDocumentIds(res.document_ids);
+                });
+                fetchLogs(selectedDb, collectionName);
+            };
+
+            const handleDocumentIdSelect = (docId) => {
+                setSelectedDocumentId(docId);
+                setDocIdSearch(docId);
+                setIsDocIdDropdownVisible(false);
+                resetState(3);
+                callApi('query_by_id', { db_name: selectedDb, collection_name: selectedCollection, _id: docId }).then(res => {
+                    if (res && res.document) {
+                        setError('');
+                        setSelectedDocument(res.document);
+                        setEditableContent(JSON.stringify(res.document, null, 2));
+                        const network = res.document.network;
+                        if (network && typeof network === 'object') {
+                            setNetworkObjects(Object.keys(network));
+                        }
+                    }
+                });
+                fetchLogs(selectedDb, selectedCollection, docId);
+            };
+            
+            const handleNetworkObjectSelect = (objectName) => {
+                setSelectedNetworkObject(objectName);
+                setNetworkObjectSearch(objectName);
+                setIsNetworkObjectDropdownVisible(false);
+                setIsTableEditing(false);
+                const dataObject = selectedDocument.network[objectName];
+                if (dataObject && Array.isArray(dataObject.fields) && Array.isArray(dataObject.data)) {
+                    setEditableTableData(JSON.parse(JSON.stringify(dataObject.data)));
+                    setViewMode('table');
+                } else {
+                    setViewMode('json');
+                }
+                setCurrentPage(1);
+            };
+
+            const autoConvertType = (value) => {
+                if (value.trim() === '') return value;
+                const num = Number(value);
+                if (!isNaN(num) && String(num) === value.trim()) {
+                    return num;
+                }
+                return value;
+            };
+            
+            const handleTableCellChange = (rowIndex, colIndex, value) => {
+                const updatedData = JSON.parse(JSON.stringify(editableTableData));
+                const convertedValue = autoConvertType(value);
+                const isArrayOfArrays = updatedData.length > 0 && Array.isArray(updatedData[0]);
+                if (isArrayOfArrays) {
+                    updatedData[rowIndex][colIndex] = convertedValue;
+                } else {
+                    updatedData[colIndex] = convertedValue;
+                }
+                setEditableTableData(updatedData);
+            };
+
+            const handleUpdate = async () => {
+                try {
+                    const newContent = JSON.parse(editableContent);
+                    const res = await callApi('update_document', { db_name: selectedDb, collection_name: selectedCollection, _id: selectedDocumentId, document_content: newContent });
+                    if (res) {
+                        alert(res.message);
+                        fetchLogs(selectedDb, selectedCollection, selectedDocumentId);
+                    }
+                } catch (err) { setError("Invalid JSON format or update failed."); }
+            };
+
+            const handleSaveAsNew = async () => {
+                try {
+                    let newContent;
+                    if (viewMode === 'table' && selectedNetworkObject) {
+                        newContent = JSON.parse(JSON.stringify(selectedDocument));
+                        newContent.network[selectedNetworkObject].data = editableTableData;
+                    } else {
+                        newContent = JSON.parse(editableContent);
+                    }
+
+                    const res = await callApi('save_document_as_new', { 
+                        db_name: selectedDb, 
+                        collection_name: selectedCollection, 
+                        document_content: newContent, 
+                        original_document: selectedDocument // Pass the full original document
+                    });
+
+                    if (res) {
+                        alert(`${res.message} New ID: ${res.new_id}`);
+                        setIsTableEditing(false);
+                        await callApi('get_document_ids', { db_name: selectedDb, collection_name: selectedCollection }).then(r => { if(r) setDocumentIds(r.document_ids)});
+                        handleDocumentIdSelect(res.new_id);
+                    }
+                } catch (err) { setError("Invalid JSON format or save failed."); }
+            };
+            
+            const fetchLogs = async (db, coll, docId) => {
+                 if (!db) { setLogHistory([]); return; }
+                 const payload = { db_name: db };
+                 if (coll) payload.collection_name = coll;
+                 if (docId) payload.document_id = docId;
+                 const res = await callApi('get_logs', payload);
+                 if (res) setLogHistory(res.logs);
+            };
+
+            const downloadLogs = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logHistory, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `${selectedDb}_changelog.json`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            };
+            
+            const renderEditableTableView = () => {
+                if (!selectedDocument || !selectedNetworkObject) return <p>Select a network object.</p>;
+                const dataObject = selectedDocument.network[selectedNetworkObject];
+                if (!dataObject || !Array.isArray(dataObject.fields) || !Array.isArray(dataObject.data)) {
+                    return <p>The selected object '{selectedNetworkObject}' does not have the required 'fields' and 'data' array structure for table view.</p>;
+                }
+
+                const headers = dataObject.fields;
+                const isArrayOfArrays = editableTableData.length > 0 && Array.isArray(editableTableData[0]);
+
+                return (
+                    <div className="table-wrapper">
+                        <div className="table-controls">
+                            <h4>{selectedNetworkObject} Data</h4>
+                            {!isTableEditing ? (
+                                <button onClick={() => setIsTableEditing(true)}>Edit Table</button>
+                            ) : (
+                                <div>
+                                    <button onClick={handleSaveAsNew} disabled={loading}>Save as New</button>
+                                    <button onClick={() => {
+                                        setIsTableEditing(false);
+                                        setEditableTableData(JSON.parse(JSON.stringify(dataObject.data)));
+                                    }} style={{backgroundColor: '#6c757d'}}>Cancel</button>
+                                </div>
+                            )}
+                        </div>
+                        <div className="table-container">
+                            <table>
+                                <thead>
+                                    <tr>{headers.map(h => <th key={h}>{h}</th>)}</tr>
+                                </thead>
+                                <tbody>
+                                    {isArrayOfArrays ? (
+                                        editableTableData.map((row, rowIndex) => (
+                                            <tr key={rowIndex}>
+                                                {Array.isArray(row) ? row.map((cell, colIndex) => (
+                                                    <td key={colIndex}>
+                                                        {isTableEditing ? (
+                                                            <input type="text" value={cell ?? ''} onChange={(e) => handleTableCellChange(rowIndex, colIndex, e.target.value)} />
+                                                        ) : (String(cell))}
+                                                    </td>
+                                                )) : <td colSpan={headers.length}>Invalid row data</td>}
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            {editableTableData.map((cell, colIndex) => (
+                                                <td key={colIndex}>
+                                                    {isTableEditing ? (
+                                                        <input type="text" value={cell ?? ''} onChange={(e) => handleTableCellChange(0, colIndex, e.target.value)} />
+                                                    ) : (String(cell))}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            };
+            
+            const renderJsonView = () => {
+                if (!selectedDocument) return null;
+                return <textarea value={editableContent} onChange={e => setEditableContent(e.target.value)} spellCheck="false" />;
+            }
+
+            return (
+                <div className="container">
+                    <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
+                    <div className="left-panel">
+                        <h2>MongoDB Explorer</h2>
+                        <p>Status: {mongoStatus}</p>
+                        <h3>Database</h3>
+                        <div style={{display: 'flex', gap: '5px'}}>
+                            <input type="text" placeholder="Enter DB Name" className="search-input" value={dbName} onChange={e => setDbName(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleDbNameSubmit()} />
+                            <button onClick={handleDbNameSubmit} style={{marginBottom: '5px'}}>Load</button>
+                        </div>
+                        {selectedDb && <>
+                            <h3>Collections</h3>
+                            <div className="searchable-list-container">
+                                <input type="text" placeholder="Search collections..." className="search-input" value={collectionSearch} onChange={e => setCollectionSearch(e.target.value)} onFocus={() => setIsCollectionDropdownVisible(true)} onBlur={() => setTimeout(() => setIsCollectionDropdownVisible(false), 200)} />
+                                {isCollectionDropdownVisible && (
+                                    <div className="item-list-dropdown">
+                                        <ul className="item-list">
+                                            {collectionNames.filter(c => c.toLowerCase().includes(String(collectionSearch || '').toLowerCase())).map(c => <li key={c} onClick={() => handleCollectionSelect(c)} className={`list-item`}>{c}</li>)}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </>}
+                        {selectedCollection && <>
+                            <h3>Document IDs</h3>
+                             <div className="searchable-list-container">
+                                <input type="text" placeholder="Search IDs..." className="search-input" value={docIdSearch} onChange={e => setDocIdSearch(e.target.value)} onFocus={() => setIsDocIdDropdownVisible(true)} onBlur={() => setTimeout(() => setIsDocIdDropdownVisible(false), 200)} />
+                                {isDocIdDropdownVisible && (
+                                    <div className="item-list-dropdown">
+                                        <ul className="item-list">
+                                            {documentIds.filter(id => String(id).toLowerCase().includes(String(docIdSearch || '').toLowerCase())).map(id => <li key={id} onClick={() => handleDocumentIdSelect(id)} className={`list-item`}>{id}</li>)}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </>}
+                        {selectedDocument && networkObjects.length > 0 && <>
+                            <h3>Network Objects</h3>
+                            <div className="searchable-list-container">
+                                <input type="text" placeholder="Search objects..." className="search-input" value={networkObjectSearch} onChange={e => setNetworkObjectSearch(e.target.value)} onFocus={() => setIsNetworkObjectDropdownVisible(true)} onBlur={() => setTimeout(() => setIsNetworkObjectDropdownVisible(false), 200)} />
+                                {isNetworkObjectDropdownVisible && (
+                                     <div className="item-list-dropdown">
+                                        <ul className="item-list">
+                                            {networkObjects.filter(obj => obj.toLowerCase().includes(String(networkObjectSearch || '').toLowerCase())).map(obj => <li key={obj} onClick={() => handleNetworkObjectSelect(obj)} className={`list-item`}>{obj}</li>)}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </>}
+                    </div>
+
+                    <div className="main-content">
+                        <h1>Document Viewer & Editor</h1>
+                        {error && <p style={{color: 'red'}}>{error}</p>}
+                        {selectedDocument ? (
+                            <>
+                                <div className="flex-row top-controls">
+                                    {viewMode === 'json' && (
+                                        <>
+                                            <button onClick={handleUpdate} disabled={loading}>Update Existing</button>
+                                            <button onClick={handleSaveAsNew} disabled={loading}>Save as New</button>
+                                        </>
+                                    )}
+                                    <button onClick={() => setViewMode(v => v === 'json' ? 'table' : 'json')} disabled={!selectedNetworkObject}>
+                                        Switch to {viewMode === 'json' ? 'Table' : 'JSON'} View
+                                    </button>
+                                </div>
+                                {viewMode === 'json' ? renderJsonView() : renderEditableTableView()}
+                            </>
+                        ) : <p>Enter a database name and select a collection/document to begin.</p>}
+                    </div>
+
+                    <div className="right-panel">
+                        <div className="log-history-header">
+                            <h3>Change History</h3>
+                            <button onClick={downloadLogs} disabled={logHistory.length === 0} style={{fontSize: '12px', padding: '5px 10px'}}>Download</button>
+                        </div>
+                        <div className="log-history-list">
+                            {logHistory.length > 0 ? logHistory.map(log => (
+                                <div key={log._id.$oid} className="log-entry">
+                                    <div className="log-entry-timestamp">{new Date(log.timestamp.$date).toLocaleString()}</div>
+                                    <div><strong>Action:</strong> {log.action}</div>
+                                    <div><strong>Doc ID:</strong> {log.document_id}</div>
+                                    <div className="log-entry-details"><button onClick={() => setSelectedLog(log)}>View Details</button></div>
+                                </div>
+                            )) : <p>No history for current selection.</p>}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
